@@ -76,8 +76,8 @@ func FetchCruxMetrics(url string, apiKey string, desiredMetrics []string) ([]Cru
 	}
 
 	// Debug Step: Logging full response of the API
-	fmt.Println("Response status code:", resp.StatusCode)
-	fmt.Println("Response body:", string(body))
+	//fmt.Println("Response status code:", resp.StatusCode)
+	//fmt.Println("Response body:", string(body))
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("API returned non-200 status code: %d\nResponse body: %s\n", resp.StatusCode, string(body))
@@ -126,7 +126,7 @@ func extractMetricsFromResponse(response map[string]interface{}, desiredMetrics 
 		}
 
 		//Debug Step: Print type of p75
-		fmt.Printf("Type of p75: %T\n", p75)
+		//fmt.Printf("Type of p75: %T\n", p75)
 
 		var histogram []HistogramEntry
 		histogramData, ok := metricMap["histogram"].([]interface{})
