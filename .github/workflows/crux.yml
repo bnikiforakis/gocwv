@@ -16,13 +16,13 @@ jobs:
       postgres:
         image: postgres:17.2-alpine3.21
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: crux
+          POSTGRES_USER: ${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres"
+          --health-cmd="pg_isready -U ${{ secrets.DB_USER }}"
           --health-timeout=5s
           --health-start-period=10s
           --health-retries=3
@@ -40,27 +40,25 @@ jobs:
         run: |
           go get -d -v ./...
 
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          until pg_isready -h localhost -p 5432 -U postgres; do
-            echo "Waiting for PostgreSQL to be ready..."
-            sleep 2
-          done
-
-      - name: Build and run tests
-        env:
-          CRUX_API_KEY: ${{ secrets.CRUX_API_KEY }}
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
+      - name: Build and run
         run: |
           go build -o crux
+          CRUX_API_KEY="${{ secrets.CRUX_API_KEY }}" \
+          DB_HOST="localhost" \
+          DB_PORT="5432" \
+          DB_USER="${{ secrets.DB_USER }}" \
+          DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+          DB_NAME="${{ secrets.DB_NAME }}" \
           ./crux
 
       - name: Query database
-        env:
-          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
+          sleep 10
           psql -h localhost -U ${{ secrets.DB_USER }} -d ${{ secrets.DB_NAME }} -c "SELECT * FROM crux_metrics;"
+
+
+      - name: Cleanup PostgreSQL container
+        run: |
+          docker ps -q --filter "ancestor=postgres:17.2-alpine3.21" | xargs -r docker stop
+          docker ps -a -q --filter "ancestor=postgres:17.2-alpine3.21" | xargs -r docker rm
+      
