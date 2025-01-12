@@ -28,11 +28,6 @@ jobs:
           --health-retries=3
 
     steps:
-
-      - name: Create crux_metric table
-        run: |
-          migrate -path db/migration -database "postgresql://root:crux@localhost:5432/crux?sslmode=disable" -verbose up
-
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -45,6 +40,13 @@ jobs:
         run: |
           go get -d -v ./...
 
+      - name: Install migrate tool
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.15.2/migrate.linux-amd64.tar.gz -o migrate.tar.gz
+          tar -xvf migrate.tar.gz
+          chmod +x migrate
+          sudo mv migrate /usr/local/bin/
+
       - name: Wait for PostgreSQL to be ready
         run: |
           until pg_isready -h localhost -p 5432 -U postgres; do
@@ -52,10 +54,19 @@ jobs:
             sleep 2
           done
 
-      - name: Build and run tests
+      - name: Run database migrations
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+        run: |
+          migrate -path db/migration -database "postgres://$DB_USER:$DB_PASSWORD@$DB_HOST:5432/$DB_NAME?sslmode=disable" -verbose up
+
+      - name: Build and run
         env:
           CRUX_API_KEY: ${{ secrets.CRUX_API_KEY }}
-          DB_HOST: localhost
+          DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: 5432
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
