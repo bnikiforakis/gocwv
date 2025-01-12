@@ -1,12 +1,12 @@
-name: Run Tests with PostgreSQL
+name: Write CrUX CoreWebVitals to Database
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      run_type:
+        description: 'Collect the data from CrUX API, and write it to DB'
+        required: false
+        default: 'default'
 
 jobs:
   test:
