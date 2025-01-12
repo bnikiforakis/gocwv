@@ -28,6 +28,11 @@ jobs:
           --health-retries=3
 
     steps:
+
+      - name: Create crux_metric table
+        run: |
+          migrate -path db/migration -database "postgresql://root:crux@localhost:5432/crux?sslmode=disable" -verbose up
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
