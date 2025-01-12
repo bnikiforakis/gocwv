@@ -9,4 +9,7 @@
 3. ### **Pass API Key as secret**
     - [ ] Investigate secret implementation on Gitlab
     - [x] Investigate secret implementation on Github
+4. ### **Write Unit Tests**
+   - [ ] Write Unit Tests  
+   - [ ] Add a new Workflow on push, for Tests to Run  
 
