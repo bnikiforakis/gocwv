@@ -2,6 +2,7 @@ CREATE TABLE crux_metrics (
                               id SERIAL PRIMARY KEY,
                               created_at timestamp DEFAULT (now()),
                               url TEXT NOT NULL,
+                              form_factor TEXT NOT NULL,
                               metric TEXT NOT NULL,
                               score DOUBLE PRECISION,
                               good DOUBLE PRECISION,
