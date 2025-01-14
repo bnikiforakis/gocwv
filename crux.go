@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+	"go-crux-microservice/utils"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
-
-	"github.com/joho/godotenv"
-	_ "github.com/lib/pq"
-	"go-crux-microservice/utils"
 )
 
 const (
@@ -30,8 +29,9 @@ func getEnvVar(key string, defaultValue string) string {
 }
 
 type CruxRequest struct {
-	Origin  string   `json:"origin"`
-	Metrics []string `json:"metrics,omitempty"`
+	Origin     string   `json:"origin"`
+	Metrics    []string `json:"metrics,omitempty"`
+	FormFactor string   `json:"formFactor,omitempty"`
 }
 
 type CruxMetric struct {
@@ -46,8 +46,8 @@ type HistogramEntry struct {
 	Density float64 `json:"density"`
 }
 
-func FetchCruxMetrics(url string, apiKey string, desiredMetrics []string) ([]CruxMetric, error) {
-	requestBody, err := json.Marshal(CruxRequest{Origin: url, Metrics: desiredMetrics})
+func FetchCruxMetrics(url string, apiKey string, desiredMetrics []string, formFactor string) ([]CruxMetric, error) {
+	requestBody, err := json.Marshal(CruxRequest{Origin: url, Metrics: desiredMetrics, FormFactor: formFactor})
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Error marshalling request body: %v", err))
 	}
@@ -170,27 +170,34 @@ func main() {
 	}
 	defer db.Close()
 
-	desiredMetrics := []string{"largest_contentful_paint", "cumulative_layout_shift", "interaction_to_next_paint"}
+	desiredMetrics := []string{"largest_contentful_paint", "cumulative_layout_shift", "interaction_to_next_paint", "first_contentful_paint", "experimental_time_to_first_byte"}
 	urls, _ := utils.ReadURLsFromFile("urls.json")
 
+	// Fetch data for both "phone" and "desktop" form factors
 	for _, url := range urls {
-		metrics, _ := FetchCruxMetrics(url, cruxAPIKey, desiredMetrics)
-
-		for _, metric := range metrics {
-			// Extract densities from histogram (3 buckets)
-			var good, needsImprovement, poor float64
-			if len(metric.Histogram) >= 3 {
-				good = metric.Histogram[0].Density
-				needsImprovement = metric.Histogram[1].Density
-				poor = metric.Histogram[2].Density
+		for _, formFactor := range []string{"phone", "desktop"} {
+			metrics, err := FetchCruxMetrics(url, cruxAPIKey, desiredMetrics, formFactor)
+			if err != nil {
+				fmt.Println("Error fetching metrics for", url, ":", err)
+				continue
 			}
 
-			// Insert data into the database
-			_, err := db.Exec(
-				"INSERT INTO crux_metrics (url, metric, score, good, needs_improvement, poor) VALUES ($1, $2, $3, $4, $5, $6)",
-				url, metric.Name, metric.Percentile, good, needsImprovement, poor)
-			if err != nil {
-				fmt.Println("Error inserting data:", err)
+			for _, metric := range metrics {
+				// Extract densities from histogram (3 buckets)
+				var good, needsImprovement, poor float64
+				if len(metric.Histogram) >= 3 {
+					good = metric.Histogram[0].Density
+					needsImprovement = metric.Histogram[1].Density
+					poor = metric.Histogram[2].Density
+				}
+
+				// Insert data into the database
+				_, err := db.Exec(
+					"INSERT INTO crux_metrics (created_at, url, form_factor, metric, score, good, needs_improvement, poor) VALUES (NOW(), $1, $2, $3, $4, $5, $6, $7)",
+					url, formFactor, metric.Name, metric.Percentile, good, needsImprovement, poor)
+				if err != nil {
+					fmt.Println("Error inserting data:", err)
+				}
 			}
 		}
 	}
